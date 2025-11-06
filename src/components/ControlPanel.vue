@@ -67,12 +67,12 @@ onBeforeUnmount(() => {
       </label>
     </div>
     <div class="btns">
-      <button class="btn" @click="trigger('abnormal')">异常流量检测</button>
-      <button class="btn" @click="trigger('compromise')">节点攻陷</button>
-      <button class="btn" @click="trigger('defense')">防御系统激活</button>
-      <button class="btn" @click="trigger('ddos')">DDoS 攻击</button>
-      <button class="btn" @click="trigger('exfiltration')">信息窃取</button>
-      <button class="btn" @click="trigger('patch')">漏洞修复</button>
+      <button class="btn" @click="trigger('abnormal')">端口扫描</button>
+      <button class="btn" @click="trigger('compromise')">远程代码执行</button>
+      <button class="btn" @click="trigger('defense')">WAF 阻断</button>
+      <button class="btn" @click="trigger('ddos')">SYN 洪泛攻击</button>
+      <button class="btn" @click="trigger('exfiltration')">数据外泄</button>
+      <button class="btn" @click="trigger('patch')">漏洞修复上线</button>
     </div>
   </div>
 </template>

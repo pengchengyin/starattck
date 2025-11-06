@@ -25,6 +25,13 @@ const SAT_MODEL_MAP = {
   inclined: '/High_Orbit_Satellite.glb',
   polar: '/GEO_Satellite.glb',
 }
+// 地点 -> 公网 IP 映射（示例值，可按需调整为真实网段）
+const GATEWAY_IP_MAP = {
+  Beijing: '36.110.10.20',
+  London: '51.140.26.5',
+  NewYork: '23.23.114.1',
+  Sydney: '101.0.76.12'
+}
 const SAT_VISUAL_MAX = 20 // 统一的可视最大边尺寸，显著增大以提升可见性
 let hudGroup
 let orbitGroup
@@ -469,7 +476,7 @@ function addGateways() {
       group.quaternion.copy(q)
     }
     gatewayGroup.add(group)
-    gateways.push({ name: l.name, pos: posWorld, obj: group })
+    gateways.push({ name: l.name, pos: posWorld, obj: group, ip: GATEWAY_IP_MAP[l.name] || null })
   }
 
   // 异步替换为 Ground_zone.glb
@@ -508,6 +515,8 @@ function addTerminals(count = 40) {
     // 随机分布在陆地区域的近似（简化为 |lat| < 60）
     const lat = (Math.random() * 120 - 60)
     const lon = (Math.random() * 360 - 180)
+    // 为每个终端生成一个稳定的私有网段 IP
+    const ip = `10.${i % 256}.${(i * 7) % 256}.${(i * 13) % 256}`
     const posWorld = latLonToVec3(lat, lon, WORLD_R_SCALE + SURFACE_OFFSET)
     const m = new THREE.Mesh(geom, mat)
     // 终端中心位于球面会半嵌入，这里按高度的一半沿法线外推，使底部贴地
@@ -523,7 +532,7 @@ function addTerminals(count = 40) {
       m.quaternion.copy(q)
     }
     terminalGroup.add(m)
-    terminals.push({ lat, lon, pos: posWorld, obj: m })
+    terminals.push({ lat, lon, pos: posWorld, obj: m, ip })
   }
 }
 
@@ -1048,6 +1057,16 @@ onMounted(() => {
     const berserk = mode === 'berserk'
     const opts = berserk ? { speed: 0.75, duration: 12, emissionRate: 14, width2: 2.5 } : { speed: 0.4, duration: 10, emissionRate: 8, width2: 1.5 }
     const widthPx = berserk ? 3 : 2
+    // 计算最近网关并向信息列表推送事件
+    const gw = getNearestGateway(terminal.pos)
+  bus.emit('attack:started', {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+    ts: Date.now(),
+    type,
+    mode,
+    terminal: { ip: gw?.ip || '-' },
+    gateway: { name: gw?.name ?? 'Unknown', ip: gw?.ip || '-' }
+  })
     switch (type) {
       case 'abnormal':
         linkTerminalToGateway(terminal, 0xff0000, widthPx, (getPos, lifeRef) => startAbnormalTrafficAt(getPos, lifeRef, 0xff0000), opts)
