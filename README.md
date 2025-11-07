@@ -24,7 +24,7 @@
 
 ![效果图](./src/assets/image-2.png)
 
-<video controls src="./src/assets/starattack.wmv" title="Title"></video>
+![alt text](startattack.gif)
 ## 项目结构
 
 ```
