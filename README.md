@@ -23,6 +23,8 @@
 ![效果图](./src/assets/image-1.png)
 
 ![效果图](./src/assets/image-2.png)
+
+<video controls src="./src/assets/starattack.wmv" title="Title"></video>
 ## 项目结构
 
 ```
