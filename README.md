@@ -24,7 +24,7 @@
 
 ![效果图](./src/assets/image-2.png)
 
-![alt text](startattack.gif)
+![alt text](./src/assets/startattack.gif)
 ## 项目结构
 
 ```
