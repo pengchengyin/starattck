@@ -552,9 +552,18 @@ function getNearestGateway(pos) {
 }
 
 function makeArcCurve(a, b, elevated = false) {
+  // 起终点不变，仅调整弧形方向与高度
   const mid = a.clone().add(b).multiplyScalar(0.5)
-  const height = elevated ? WORLD_R_SCALE * 1.5 : WORLD_R_SCALE * 1.1
-  const ctrl = mid.clone().normalize().multiplyScalar(height)
+  const na = a.clone().normalize()
+  const nb = b.clone().normalize()
+  const dot = Math.max(-1, Math.min(1, na.dot(nb)))
+  const angle = Math.acos(dot) // 0 ~ π，端点夹角越大，抬升越高
+  const baseR = Math.max(a.length(), b.length(), WORLD_R_SCALE * 1.02)
+  const liftBase = elevated ? WORLD_R_SCALE * 0.8 : WORLD_R_SCALE * 0.4
+  const liftAngle = angle * (WORLD_R_SCALE * 0.2) // 随夹角增加抬升
+  const heightR = baseR + liftBase + liftAngle
+  const ctrlDir = mid.lengthSq() > 1e-6 ? mid.clone().normalize() : na.clone().add(nb).normalize()
+  const ctrl = ctrlDir.multiplyScalar(heightR)
   return new THREE.QuadraticBezierCurve3(a, ctrl, b)
 }
 
@@ -581,8 +590,10 @@ function addParticleFlowLine(curve, color = 0xff0000, widthPx = 2, duration = 3,
   const mat = new THREE.PointsMaterial({ color, size: 6 * px, transparent: true, opacity: 1, sizeAttenuation: false })
   mat.blending = THREE.AdditiveBlending
   mat.depthWrite = false
+  mat.depthTest = true // 允许地球深度遮挡背后的粒子
   const points = new THREE.Points(geom, mat)
   points.renderOrder = 6
+  points.frustumCulled = false
   scene.add(points)
 
   // 发射队列：按速率逐个生成，数量不多
@@ -594,15 +605,36 @@ function addParticleFlowLine(curve, color = 0xff0000, widthPx = 2, duration = 3,
   let emitAcc = 0
   const emissionRate = emissionRateParam // 每秒发射粒子数（可调）
   let arrivedOnce = false
+  // 立即激活一个粒子，避免初始帧未发射导致“看不到粒子”的情况
+  ts[alive] = 0
+  alive++
+  geom.setDrawRange(0, alive)
+  {
+    const p0 = curve.getPoint(0)
+    positions[0] = p0.x
+    positions[1] = p0.y
+    positions[2] = p0.z
+    geom.attributes.position.needsUpdate = true
+    geom.computeBoundingSphere()
+  }
   const effect = {
     update(delta, nowSec) {
       // 若提供动态终点，则每帧更新曲线的终点与控制点，使终点跟随当前卫星位置
       if (getEndLatest) {
         const end = getEndLatest()
         const a = curve.v0
+        // 起终点不变，动态调整弧形方向与高度（更高更安全）
         const mid = a.clone().add(end).multiplyScalar(0.5)
-        const height = WORLD_R_SCALE * 1.5 // 使用抬升弧线的高度
-        const ctrl = mid.clone().normalize().multiplyScalar(height)
+        const na = a.clone().normalize()
+        const nb = end.clone().normalize()
+        const dot = Math.max(-1, Math.min(1, na.dot(nb)))
+        const angle = Math.acos(dot)
+        const baseR = Math.max(a.length(), end.length(), WORLD_R_SCALE * 1.02)
+        const liftBase = WORLD_R_SCALE * 0.9
+        const liftAngle = angle * (WORLD_R_SCALE * 0.25)
+        const heightR = baseR + liftBase + liftAngle
+        const ctrlDir = mid.lengthSq() > 1e-6 ? mid.clone().normalize() : na.clone().add(nb).normalize()
+        const ctrl = ctrlDir.multiplyScalar(heightR)
         curve.v1.copy(ctrl)
         curve.v2.copy(end)
       }
@@ -657,6 +689,19 @@ function addParticleFlowLine(curve, color = 0xff0000, widthPx = 2, duration = 3,
       geom.setDrawRange(0, alive)
       geom.attributes.position.needsUpdate = true
       geom.computeBoundingSphere()
+
+      // 保证至少有一个粒子在飞行，避免出现“管道线不动”的视觉
+      if (alive === 0) {
+        ts[0] = 0
+        alive = 1
+        geom.setDrawRange(0, alive)
+        const p0 = curve.getPoint(0)
+        positions[0] = p0.x
+        positions[1] = p0.y
+        positions[2] = p0.z
+        geom.attributes.position.needsUpdate = true
+        geom.computeBoundingSphere()
+      }
 
       // 兜底：若出现粒子复用导致未触发抵达事件，按预计到达时间触发一次
       if (!arrivedOnce && onArrive) {
